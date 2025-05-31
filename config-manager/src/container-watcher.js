@@ -39,14 +39,40 @@ class ContainerWatcher {
       logger.error("❌ Failed to handle event:", err.message);
     }
   }
+
   async handleContainerStart(containerInfo) {
     const subdomain = containerInfo.Config.Labels["ide.subdomain"];
-    if (!subdomain) return;
+    if (!subdomain) return; // if no subdomain label, skippp
 
-    const ipAddress = containerInfo.NetworkSettings.IPAddress; //gets the IP of the container
-    await this.nginxManager.updateConfiguration(subdomain, ipAddress); // genrerates the Nginx config for that container
-    logger.info(`🟢 Started: ${subdomain} → ${ipAddress}`);
+    /* Get the correct network name (from docker-compose),
+     or fallback to the first network if not found */
+    const networkName =
+      Object.keys(containerInfo.NetworkSettings.Networks).find((name) =>
+        name.includes("ide-network")
+      ) || Object.keys(containerInfo.NetworkSettings.Networks)[0];
+
+    const ipAddress =
+      containerInfo.NetworkSettings.Networks[networkName]?.IPAddress;
+    if (!ipAddress) {
+      this.logger.error(`⚠️ Couldd not get IP for ${subdomain}`);
+      return;
+    }
+
+    // Try to detect the exposed port, fallback to 80
+    let port = 80;
+    const exposedPorts = containerInfo.Config.ExposedPorts;
+    if (exposedPorts) {
+      const firstPort = Object.keys(exposedPorts)[0];
+      if (firstPort) {
+        port = parseInt(firstPort.split("/")[0], 10);
+      }
+    }
+
+    await this.nginxManager.updateConfiguration(subdomain, ipAddress, port); // updates Nginx config
+
+    logger.info(`🟢 Started: ${subdomain} → ${ipAddress}:${port}`);
   }
+
   async handleContainerStop(containerInfo) {
     const subdomain = containerInfo.Config.Labels["ide.subdomain"];
     if (!subdomain) return;
@@ -66,7 +92,7 @@ class ContainerWatcher {
   }
   async syncExistingContainers() {
     try {
-      const containers = await this.docker.listContainers({ all: true });
+      const containers = await this.docker.listContainers({ all: true }); // listing all containers including stopped ones
 
       for (const container of containers) {
         if (container.Labels["ide.subdomain"]) {

@@ -1,14 +1,15 @@
-FROM nginx:alpine
+FROM node:18-alpine
 
-RUN apk add --no-cache curl
+WORKDIR /app
 
-RUN rm /etc/nginx/conf.d/default.conf
+# Copy package files and install deps
+COPY package*.json ./
+RUN npm install
 
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY templates/ /etc/nginx/manual-templates/
-COPY conf.d/ /etc/nginx/conf.d/
+# Copy source code
+COPY src/ ./src/
 
-RUN mkdir -p /etc/nginx/conf.d
+# Copy env file if needed (optional, usually passed via docker-compose)
+# COPY .env .env
 
-HEALTHCHECK --interval=30s --timeout=3s \
-    CMD curl -f http://localhost/health || exit 1
+CMD ["npm", "start"]

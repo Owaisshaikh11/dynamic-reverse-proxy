@@ -30,22 +30,18 @@ class NginxManager {
     }
   }
   async reloadNginx() {
-    try {
-      const { exec } = require("child_process");
-      await new Promise((resolve, reject) => {
-        exec("nginx -s reload", (error, stdout, stderr) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve(stdout);
-          }
-        });
-      });
-      logger.info("🔄 NGINX reloaded");
-    } catch (err) {
-      logger.error("❌ Failed to reload NGINX:", err);
+  try {
+      // Create reload trigger file inside shared volume
+      await fs.writeFile('/etc/nginx/conf.d/../trigger-reload', '');
+      logger.info(`🔄 Requested NGINX reload`);
+      return true;
+    } catch (error) {
+      logger.error(`❌ Failed to trigger NGINX reload: ${error}`);
+      return false;
     }
-  }
+  
+}
+
   async updateDnsRecord(subdomain, ipAddress) {
     try {
       await axios.post(`${this.dnsApiUrl}/api/dns/subdomains`, {

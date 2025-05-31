@@ -1,1 +1,6 @@
 config-manager/node_modules/
+config-manager/.env
+test-app/node_modules/
+logs/
+error.log
+combined.log

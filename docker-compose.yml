@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  nginx:
+    build: ./nginx
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/manual-templates:/etc/nginx/manual-templates
+    depends_on:
+      - config-manager
+    networks:
+      - ide-network
+
+  config-manager:
+    build: ./config-manager
+    container_name: config-manager
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/manual-templates:/etc/nginx/manual-templates
+    environment:
+      - DNS_API_URL=http://dns-server:8053
+      - NODE_ENV=production
+    networks:
+      - ide-network
+
+  dns-server:
+    build: D:\Coding\DNS_Project
+    container_name: dns-server
+    ports:
+      - "8053:8053"      # HTTP API
+      - "5354:5354/udp"  # DNS over UDP
+    expose:
+      - "5354/udp"  
+    networks:
+      - ide-network
+
+  test-app:
+    build: ./test-app
+    container_name: test-app
+    labels:
+      ide.subdomain: testuser
+    networks:
+      - ide-network
+
+networks:
+  ide-network:
+    driver: bridge
